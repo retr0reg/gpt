@@ -30,7 +30,7 @@ batch_size = 4 # how many blocks we will deal with at the same time?
 
 def get_batch(type):
     data = train if type is "train" else validate
-    indexes = torch.randint(len(data-block_size), (batch_size,)) # note the difference of usage of 'block_size' and 'batch_size' here. this return a batch_size sized tensor with value from 0 to data-block_size
+    indexes = torch.randint(len(data)-block_size, (batch_size,)) # note the difference of usage of 'block_size' and 'batch_size' here. this return a batch_size sized tensor with value from 0 to data-block_size
     xs = torch.stack([data[i:i+block_size] for i in indexes]) # we use stack, since the generator generates multiple tensor: eventually 4 tensor of  8 values
     ys = torch.stack([data[i+1:i+block_size+1] for i in indexes]) # (1,) = 2, (1,2,) = 3... ys are always the x+1.
     return xs, ys
@@ -94,5 +94,21 @@ idx = torch.zeros((1,1), dtype=torch.long)
 
 # print(''.join(decode(model.generate(idx, max_length=100)[0].tolist())))
 # ^^^ this out puts gibberish, since the model is just randomly "predicts" (sampling) whats after the chatacter, so we need:
+# (note here sampling doesn't just pick out the largest possiblility one, but if a token is 0.8 softmax, it have 0.8 chance of being picked)
 # 1. predict the next word not randomly
 # 1, make "previous" context related to the nextword
+
+# let's train!
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+batch_size = 32 # bigger batch
+
+loss = None
+for step in range(8000):
+    xb, yb = get_batch('train')
+    logits, loss = model(xb, yb)
+    optimizer.zero_grad(set_to_none=True) # reset the gradient to zero to recalculate! don't make the same mistake we made in retr0reg/nn!
+    loss.backward()
+    optimizer.step()
+
+print(''.join(decode(model.generate(idx, max_length=100)[0].tolist())))
+# even though sensible output is here, but it's still outputting based on last chatacter
